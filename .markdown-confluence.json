@@ -3,5 +3,5 @@
   "confluenceParentId": "3309535519",
   "atlassianUserName": "pbenzinger@mirantis.com",
   "folderToPublish": "docs",
-  "contentRoot": "/docs"
+  "contentRoot": "/"
 }
