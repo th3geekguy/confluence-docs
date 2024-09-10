@@ -24,8 +24,10 @@ jobs:
       - name: Convert Markdown to HTML
         run: node convert-md-to-html.js
 
-      - name: Upload HTML files as artifacts
-        uses: actions/upload-artifact@v3
+      - name: Commit and push HTML files
+        uses: EndBug/add-and-commit@v9
         with:
-          name: html-files
-          path: html/
+          add: 'converted-html/**'
+          message: 'Add converted HTML files'
+          author_name: 'github-actions'
+          author_email: 'actions@github.com'
