@@ -236,7 +236,7 @@ prodvdockerwk01   tpbji95527  worker   windows  active  ready  192.168.174.7    
 
 Coupled with logs and/or screenshots provided of the specific issue the customer is running into, and SOS reports from nodes that might be having a system issue (`sosreport -e docker --batch`), this is usually enough information to at least identify a likely culprit -- if not identify the problem itself -- and/or escalate to our Mirantis engineers or developers to further investigate.
 
-The support dump remains a vital tool for us as Mirantis engineers in understanding our customers' clusters.
+Otherwise the support dump remains a vital tool for us as Mirantis engineers in understanding our customers' clusters.
 
 
 
