@@ -1,0 +1,213 @@
+<h1>Support Dump Explanation</h1>
+<p>How the support dump is structured and where to investigate for specific problems</p>
+<h2>What is the &quot;Support Dump&quot;?</h2>
+<p>When our engineers refer to &quot;support dump&quot; or &quot;support bundle&quot; (sometimes abbreviated &quot;SD&quot;), we are referring to a collection tool written by our Mirantis developers that runs as a container within swarm and collects data about the cluster (both diagnostic and informative) for our perusal apart from the cluster. (<a href="https://hub.docker.com/r/mirantis/ucp-dsinfo">Docker Hub</a> and <a href="https://github.com/Mirantis/orca/tree/master/images/dsinfo">Github link (need permissions for this)</a>)</p>
+<p>In this way, we can have the customer run the program to create the support dump, attach it to a case and we are able to review it to see potential problems with the cluster and gain insight into how the cluster is setup.</p>
+<h2>How does one collect the support dump?</h2>
+<p>There are two different types of support dumps the breadth or depth that they cover of the cluster:</p>
+<ol>
+<li>A support dump that ends in a <code>.zip</code> extension is a cluster wide support dump and includes more than one node [^what is a node?]</li>
+<li>A support dump that ends in a <code>.tgz</code> or <code>.tar.gz</code> extension is a node specific support dump and includes information on a single node</li>
+</ol>
+<p>Collecting a support dump can be initiated through the web UI, API, or via CLI. When collected via CLI, the support dump will only be for that node (second type of support dump above).</p>
+<p>To take the cluster wide support dump, use the link on the web UI under the profile name titled &quot;support bundle&quot;. This will spin up a container using the <code>ucp-dsinfo</code> image and runs its associated scripts.</p>
+<p>For a single node support dump, you can collect it via CLI with the following command:</p>
+<pre><code class="language-bash">MKE_VERSION=$((docker container inspect ucp-proxy \
+--format &#39;{{index .Config.Labels &quot;com.docker.ucp.version&quot;}}&#39; \
+2&gt;/dev/null || echo -n 3.7.13)|tr -d [[:space:]]);
+
+docker container run --rm \
+  --name ucp \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --log-driver none \
+  mirantis/ucp:${MKE_VERSION} \
+  support &gt; \
+  docker-support-${HOSTNAME}-$(date +%Y%m%d-%H_%M_%S).tgz
+</code></pre>
+<h2>Which support dump do we want?</h2>
+<p>Ideally, have the customer take a cluster wide support dump. The cluster wide should contain everything a single node support dump would have (if it can collect for that node and doesn&#39;t lose connection to that node during collection).</p>
+<p>In the case where the customer is 1) unable to take a cluster wide support dump (UI is down, for example) or 2) the affected node is not communicating properly with the rest of the cluster (network or swarm problems usually), a single node support dump of that node can be used to assess that node.</p>
+<h2>How can we ensure we have a valid support dump?</h2>
+<p>At times, the support dump collection fails, whether through a network problem, because of the size of the support dump, or another reason. When this happens, the support dump will usually be under-sized, less than 2 MB.</p>
+<p>We can also list the files within a support dump without decompressing using commands like:</p>
+<pre><code class="language-bash">less &lt;docker-support.zip&gt;
+# -- or --
+tar -tf &lt;docker-support.tar.gz&gt;
+</code></pre>
+<p>This can also immediately tell us if there is a problem with the file if it fails to print the file contents.</p>
+<p><strong>Note:</strong> We have also run into an issue with some customers collecting support dumps via the CLI for nodes and they add additional output to the headers of the file (I think it is likely how they output both stdout and the file to the same tgz). These files will appear to be corrupted .tar.gz archives and won&#39;t decompress, but we can fix with the following bash function:</p>
+<pre><code class="language-bash">fixtar ()
+{
+    if [ $# -eq 0 ]; then
+        echo &quot;This script will strip the leading text from a corrupted&quot;;
+        echo &quot;tar file created by a single node support dump&quot;;
+        echo &quot;  Usage: clean_sd.sh &lt;filename&gt;&quot;;
+        echo &quot;  Produces output file named fixed_&lt;filename&gt;&quot;;
+        exit 0;
+    fi;
+    pos=$(grep -m 1 -a -b --only-matching &#39;�&#39; $1 | awk -F: &#39;{print $1}&#39;);
+    if [ -z &quot;$pos&quot; ]; then
+        echo &quot;Did not find gz header&quot;;
+    else
+        if [ $pos -eq 0 ]; then
+            echo &quot;File is already a tar/gz file&quot;;
+        else
+            pos=$(( pos+1 ));
+            tail -c +$pos $1 &gt; fixed_$1;
+        fi;
+    fi
+}
+</code></pre>
+<p>And its usage:</p>
+<pre><code class="language-bash">fixtar &lt;docker-support-corrupted.tar.gz&gt;
+# -- outputs a new file named like --
+fixed_docker-support-correputed.tar.gz
+</code></pre>
+<h2>What is in the support dump?</h2>
+<h3>Node-specific Directories</h3>
+<p>Detailed information about each node&#39;s configuration, logs, and status, aiding in the identification of node-specific issues.</p>
+<p>Each node directory contains:</p>
+<ul>
+<li>Directories for logs and inspection, including logs of all UCP containers and Docker inspection of all UCP containers.</li>
+<li>Journalctl logs and kernel logs, providing detailed system-level information.</li>
+<li>A Docker system info file, offering insights into Docker&#39;s configuration and environment.</li>
+<li>Certificate information, ensuring secure communication within the cluster.</li>
+</ul>
+<h3>Inspection of Swarm Services</h3>
+<p>Detailed reports on the status, configuration, and health of all services in the Swarm cluster, crucial for diagnosing service-related issues.</p>
+<h3>Kubernetes Descriptions</h3>
+<p>Comprehensive descriptions of all Kubernetes resources and nodes, offering insights into the Kubernetes cluster state.</p>
+<h3>License Information</h3>
+<p>Details about the software licenses in use, ensuring compliance and providing context for available features.</p>
+<h3>Docker System Info File</h3>
+<p>In-depth information about Docker&#39;s configuration and environment, aiding in Docker-related issue diagnosis.</p>
+<h3>Primary Node Inspection File</h3>
+<p>Detailed information about the master node, including configuration and logs, offering insights into the overall cluster health.</p>
+<h2>How do I go about reading the support dump?</h2>
+<p>The best first starting point is always to see an overview of the cluster. Below is a link to a script that has been written to pull info from the decompressed support dump and create a table view of the cluster, showing managers, OS, versions, etc.:</p>
+<ul>
+<li><a href="https://github.com/Mirantis/support-tools/blob/master/introspection/sd_nodes3os.py">https://github.com/Mirantis/support-tools/blob/master/introspection/sd_nodes3os.py</a></li>
+</ul>
+<p>Save this to your path so you can run: <code>sd_nodes</code> within a support dump and receive output like the following:</p>
+<pre><code>HOSTNAME          ID          ROLE     OS       AVAIL   STATE  IP               DAEMON  UCP/DTR  COLLECT  ORCHESTR    CREATED/UPDATED        STATUS_MESSAGE
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+prodvdockermke01  ckjwal2qir  leader   linux    active  ready  192.168.174.26   23.0.7  3.7.2/-  /System  swarm/kube  2024-05-10/2024-08-08  Healthy MKE manager
+prodvdockermke02  5jyxz6hwcj  manager  linux    active  ready  192.168.174.27   23.0.7  3.7.2/-  /System  swarm/kube  2024-05-10/2024-08-08  Healthy MKE manager
+prodvdockermke03  xxhforq6pt  manager  linux    active  ready  192.168.174.32   23.0.7  3.7.2/-  /System  swarm/kube  2024-05-10/2024-08-08  Healthy MKE manager
+ProdVDockerInt2   snpiu4zlv3  worker   windows  active  ready  192.168.102.243  23.0.7  3.7.2/-  /Shared  swarm/-     2023-12-18/2024-08-08  Healthy MKE worker
+prodvdockerintr   m6dhdclgn5  worker   windows  active  ready  192.168.102.242  23.0.7  3.7.2/-  /Shared  swarm/-     2021-06-07/2024-08-08  Healthy MKE worker
+prodvdockermsr01  k7omkspmoo  worker   linux    active  ready  192.168.174.33   23.0.7  3.7.2/-  /Shared  -/kube      2024-05-09/2024-08-08  Healthy MKE worker
+prodvdockermsr02  mzzrueeetc  worker   linux    active  ready  192.168.174.36   23.0.7  3.7.2/-  /Shared  -/kube      2024-05-09/2024-08-08  Healthy MKE worker
+prodvdockermsr03  a2ocynm3hg  worker   linux    active  ready  192.168.174.37   23.0.7  3.7.2/-  /Shared  -/kube      2024-05-09/2024-08-08  Healthy MKE worker
+prodvdockerwk01   tpbji95527  worker   windows  active  ready  192.168.174.7    23.0.7  3.7.2/-  /Shared  swarm/-     2021-06-07/2024-08-08  Healthy MKE worker
+</code></pre>
+<h3>Notes on SD_Nodes</h3>
+<ul>
+<li>If versions for MKE and MSR are not reported, we failed to collect data for that node.<ul>
+<li>If a single version is not reported, that is not necessarily a problem.</li>
+</ul>
+</li>
+<li>Status of <code>disconnected</code> or <code>drained</code> might not be a problem -- could be a node in maintenance.</li>
+<li>Some nodes may be on a different version versus others; again, this is not necessarily a problem; customer could be working through or towards an upgrade.</li>
+<li>Created and updated can tell you interesting info about the upgrade process/procedure of the cluster. Recent upgrades, etc.</li>
+<li>Mixed (swarm and kube) orchestration is only supported for managers and replicas; it is not meant for workers.</li>
+</ul>
+<h3>Digging Deeper</h3>
+<ul>
+<li>Investigation into the base file <code>ucp-controller-config.json</code> can tell you a lot about the overall configuration of MKE.</li>
+<li>If an MKE node is using Calico, we will additionally have a <code>cni</code> folder with info:<ul>
+<li>File <code>node_status.txt</code> (within <code>cni/calico</code>) gives a table overview of nodes using Calico, etc.<ul>
+<li>This tells a lot about the Calico process -- is it running? are the nodes connected? etc.</li>
+</ul>
+</li>
+<li><strong>Note</strong> that some error messages here are red herrings</li>
+<li>The <code>inspect</code> folder gives further health checks and info on the nodes<ul>
+<li>grep&#39;ing inside this folder to &quot;unhealthy&quot; can give some information about node health and status</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>The root of each node folder contains a <code>certdump</code> file<ul>
+<li>Examine this that all certificates are marked &quot;valid&quot;</li>
+<li>An &quot;invalid&quot; certificate can indicate a time sync issue or drift, or an expired certificate</li>
+<li>You can also run the certdump command directly on a live node</li>
+</ul>
+</li>
+<li>On MKE managers, there is a <code>rethinkdb-status.json</code> file<ul>
+<li>This is great for troubleshooting the status of MKE</li>
+<li>The file is sectioned as:<ul>
+<li>Part <code>server_status</code> denotes the number of managers (should be odd: 1, 3, or 5)<ul>
+<li>This shows connection statuses; ports; time connected</li>
+</ul>
+</li>
+<li>Part <code>table_status</code>:<ul>
+<li>Shows statuses of nodes (&quot;ready&quot;, &quot;not ready&quot;, etc)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Node file <code>journalctl_kernel</code> is logging from syslogs<ul>
+<li>Represents system logs outside the Docker service and specific to the node&#39;s environment</li>
+<li>Where system or kernel issues are the likely suspect, this journal is especially helpful</li>
+</ul>
+</li>
+<li>File <code>journalctl_daemon</code> is the logs of the Docker service (MCR)<ul>
+<li>A shortened version is displayed when running <code>systemctl status docker</code></li>
+</ul>
+</li>
+<li>Really important file <code>dsinfo</code> has so much information (but it is not sorted) and the output of the following commands:<ul>
+<li><code>docker info</code><ul>
+<li>Versions</li>
+<li>Storage Driver<ul>
+<li>Backing Filesystem</li>
+<li><strong>Watch for</strong> an incompatible setup of Docker and backing filesystem (see compatibility matrix in docs)</li>
+</ul>
+</li>
+<li>Logging Driver</li>
+<li>Swarm status (we should see status &quot;active&quot;; a status of &quot;pending&quot; means there could be a certificate rotation in progress or node is waiting to join swarm)</li>
+<li>Manager addresses (number of managers should match number of machines; seems obvious but I&#39;ve seen mismatches)</li>
+<li>OS and kernel<ul>
+<li><strong>Watch for</strong> custom or mismatched kernels; this is not best practice and could cause problems</li>
+</ul>
+</li>
+<li>CPUs<ul>
+<li><strong>Watch for</strong> nodes that don&#39;t meet requirements; we prefer 4 CPUs per manager.</li>
+</ul>
+</li>
+<li>Memory<ul>
+<li><strong>Watch for</strong> nodes that don&#39;t meet requirements; we prefer 16 GB per manager node, and more for MSR replicas.</li>
+</ul>
+</li>
+<li>Docker root directory (this <em>is</em> customizable by customer)</li>
+<li>Registries (aka, MSR or Docker Community Registry)</li>
+<li>License (only on managers)</li>
+</ul>
+</li>
+<li><code>docker images</code><ul>
+<li>Can be used to verify an image exists and is the right version</li>
+<li><strong>Note</strong> that for clusters that are disconnected from the external internet (offline), every node needs the set of images locally to run associated containers (MKE and/or MSR)</li>
+</ul>
+</li>
+<li><code>docker stats</code><ul>
+<li>Can see the largest consumers of memory and CPU</li>
+<li><strong>Note</strong> that consumption of CPU over 100% is possible as Docker registers CPU usage funkily and doesn&#39;t account for multi-CPUs</li>
+</ul>
+</li>
+<li><code>cat /etc/os-release</code></li>
+<li><code>uname -r</code></li>
+<li><code>lscpu</code></li>
+<li><code>cat /proc/meminfo</code></li>
+<li><code>df -h</code></li>
+<li><code>mount</code></li>
+<li><code>vmstat</code></li>
+<li><code>iostat</code></li>
+<li>And a lot of network commands including iptables...</li>
+</ul>
+</li>
+</ul>
+<h2>Final Thoughts</h2>
+<p>Coupled with logs and/or screenshots provided of the specific issue the customer is running into, and SOS reports from nodes that might be having a system issue (<code>sosreport -e docker --batch</code>), this is usually enough information to at least identify a likely culprit -- if not identify the problem itself -- and/or escalate to our Mirantis engineers or developers to further investigate.</p>
+<p>Overall, the support dump remains a vital tool for us as Mirantis engineers in understanding our customers&#39; clusters.</p>
+<p>[^what is a node?]: A node is a single machine within a cluster -- this could be virtual by way of a tool like VMWare, physical (like separate computers), or cloud based (like AWS). A cluster is a conglomerate of nodes (though you <em>can have a swarm of one node</em>)</p>
