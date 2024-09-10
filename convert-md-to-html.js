@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const marked = require('marked');  // Markdown parser
+const marked = require('marked').marked;  // Markdown parser
 
 const convertMarkdownToHtml = (inputPath, outputPath) => {
   const markdown = fs.readFileSync(inputPath, 'utf-8');
@@ -19,7 +19,7 @@ const convertAllMarkdownFiles = (dir) => {
     if (stat.isDirectory()) {
       convertAllMarkdownFiles(filePath);
     } else if (path.extname(file) === '.md') {
-      const outputFilePath = path.join('converted-html', path.relative('.', filePath)).replace(/\.md$/, '.html');
+      const outputFilePath = path.join('html', path.relative('.', filePath)).replace(/\.md$/, '.html');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       convertMarkdownToHtml(filePath, outputFilePath);
       console.log(`Converted ${filePath} to ${outputFilePath}`);
@@ -28,7 +28,7 @@ const convertAllMarkdownFiles = (dir) => {
 };
 
 // Ensure the output directory exists
-fs.mkdirSync('converted-html', { recursive: true });
+fs.mkdirSync('html', { recursive: true });
 
 // Start conversion from the root directory
 convertAllMarkdownFiles('.');
