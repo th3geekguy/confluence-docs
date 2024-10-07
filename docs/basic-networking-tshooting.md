@@ -20,11 +20,6 @@ Check your device’s network settings to ensure proper configuration.
 - Select **Change adapter settings** to view your network connections.
 - Right-click your network connection and choose **Properties** to verify settings like the IP address and DNS.
 
-### For macOS:
-- Go to **System Preferences** > **Network**.
-- Ensure your network adapter (Wi-Fi or Ethernet) is enabled and connected.
-- Check if you have a valid IP address under the **Status** section.
-
 ## 3. **Check IP Address and Connectivity**
 
 Your computer needs a valid IP address to communicate over the network. You can use command-line tools to verify this.
