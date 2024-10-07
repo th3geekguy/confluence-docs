@@ -30,12 +30,13 @@ jobs:
           filters: |
             markdown_subfolders:
               - added|modified: '*/**/*.md'   # Only markdown files in subfolders
+          list-files: shell
 
       - name: List filtered markdown files
         if: ${{ steps.filter_markdown.outputs.markdown_subfolders == 'true' }}
         run: |
           echo "Filtered files:"
-          echo "${{ steps.filter_markdown.outputs.markdown_subfolders_files }}" > markdown_files.csv
+          echo "${{ steps.filter_markdown.outputs.markdown_subfolders_files }}" | sed 's|\s\+|\n|g' > markdown_files.csv
           cat markdown_files.csv
 
       #- name: Run captain.js to process markdown files
