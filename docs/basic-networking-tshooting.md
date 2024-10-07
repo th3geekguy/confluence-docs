@@ -69,6 +69,8 @@ If your network connection still isn’t working, the problem might be with the 
 
 Sometimes, firewalls or antivirus software can block network connections.
 
+**Note:** this action is often overlooked, but super helpful to try.
+
 ### Steps:
 - Disable the firewall or antivirus temporarily to see if this resolves the issue.
 - If the network works after disabling, adjust the firewall or security settings to allow proper network access.
