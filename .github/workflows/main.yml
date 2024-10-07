@@ -4,8 +4,7 @@ on:
   pull_request:
     types: [closed]
     paths:
-      - '**/*.md'   # Trigger for markdown files only
-      - '*/**/*.md' # Ensure subfolders are included
+      - '**/*.md'  # Trigger only for markdown files
 
 jobs:
   process-markdown:
@@ -19,33 +18,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16' # Ensure to use the appropriate Node.js version
+          node-version: '16'
 
       - name: Install dependencies
-        run: npm install fs path https marked gray-matter csv-parser  # Install the Axios dependency (or other needed packages)
+        run: npm install fs path https marked gray-matter csv-parser
 
-      - name: Filter Markdown files in subfolders
+      - name: Filter Markdown files
         id: filter_markdown
         uses: dorny/paths-filter@v2
         with:
           filters: |
             markdown_subfolders:
-              - '*/**/*.md'   # Include only markdown files in subfolders, not root directory
+              - added|modified: '*/**/*.md'   # Only markdown files in subfolders
 
       - name: List filtered markdown files
-        if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+        if: ${{ steps.filter_markdown.outputs.markdown_subfolders == 'true' }}
         run: |
           echo "Filtered files:"
-          echo "${{ steps.filter_markdown.outputs.markdown_subfolders }}" > markdown_files.csv
+          echo "${{ steps.filter_markdown.outputs.markdown_subfolders_files }}" > markdown_files.csv
           cat markdown_files.csv
 
       #- name: Run captain.js to process markdown files
-      #  if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+      #  if: ${{ steps.filter_markdown.outputs.markdown_subfolders == 'true' }}
       #  run: |
       #    node captain.js markdown_files.csv
 
       - name: Commit changes with new frontmatter IDs
-        if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+        if: ${{ steps.filter_markdown.outputs.markdown_subfolders == 'true' }}
         uses: EndBug/add-and-commit@v9
         with:
           message: "Added new page IDs to frontmatter of markdown files"
