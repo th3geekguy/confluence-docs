@@ -1,0 +1,52 @@
+name: Process Markdown Files on Pull Request Merge
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - '**/*.md'   # Trigger for markdown files only
+      - '*/**/*.md' # Ensure subfolders are included
+
+jobs:
+  process-markdown:
+    if: github.event.pull_request.merged == true  # Ensure it only runs if the PR was merged
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Ensure to use the appropriate Node.js version
+
+      - name: Install dependencies
+        run: npm install fs path https marked gray-matter csv-parser  # Install the Axios dependency (or other needed packages)
+
+      - name: Filter Markdown files in subfolders
+        id: filter_markdown
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            markdown_subfolders:
+              - '*/**/*.md'   # Include only markdown files in subfolders, not root directory
+
+      - name: List filtered markdown files
+        if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+        run: |
+          echo "Filtered files:"
+          echo "${{ steps.filter_markdown.outputs.markdown_subfolders }}" > markdown_files.csv
+          cat markdown_files.csv
+
+      #- name: Run captain.js to process markdown files
+      #  if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+      #  run: |
+      #    node captain.js markdown_files.csv
+
+      - name: Commit changes with new frontmatter IDs
+        if: steps.filter_markdown.outputs.markdown_subfolders_changed == 'true'
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Added new page IDs to frontmatter of markdown files"
+          add: "*.md"
