@@ -52,10 +52,6 @@ Sometimes, DNS (Domain Name System) problems prevent you from accessing websites
 - Right-click your active connection, choose **Properties**, and find **Internet Protocol Version 4 (TCP/IPv4)**.
 - Update the DNS server addresses to `8.8.8.8` and `8.8.4.4`.
 
-### For macOS:
-- Open **System Preferences** > **Network**.
-- Click **Advanced** > **DNS** and add Google’s DNS (`8.8.8.8` and `8.8.4.4`).
-
 ## 5. **Check Router and Modem**
 
 If your network connection still isn’t working, the problem might be with the router or modem.
