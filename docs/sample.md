@@ -1,3 +1,4 @@
+
 # Support Dump Explanation
 
 How the support dump is structured and where to investigate for specific problems
